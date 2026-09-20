@@ -10,6 +10,8 @@
 [![license](https://img.shields.io/github/license/flymysql/dsh-remote)](LICENSE)
 [![dsh-plugin](https://img.shields.io/badge/topic-dsh--plugin-7a3ef3)](https://github.com/topics/dsh-plugin)
 
+Maintained by [@flymysql](https://github.com/flymysql) · [Blog](https://gitpull.cn) · [Discussions](https://github.com/flymysql/dsh-remote/discussions) · [Issues](https://github.com/flymysql/dsh-remote/issues) · [中文说明](./README.zh.md)
+
 ![dsh-remote — make any SSH machine a real DSH workspace](docs/cover.png)
 
 **Remote-work assistant for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (DSH).**
@@ -265,6 +267,21 @@ Giving the plugin a machine's credentials lets the agent run **shell commands as
 ## License
 
 MIT
+
+## Contributing
+
+Contributions are welcome — see [CONTRIBUTING.md](./CONTRIBUTING.md). Questions, setups and "is this supported?" go to [Discussions](https://github.com/flymysql/dsh-remote/discussions); reproducible bugs go to [Issues](https://github.com/flymysql/dsh-remote/issues).
+
+Thanks to everyone who has landed a change here (merged PRs in parentheses):
+
+[@dahaipeng](https://github.com/dahaipeng) (#31) ·
+[@YiHui-Liu](https://github.com/YiHui-Liu) (#28) ·
+[@nekomona](https://github.com/nekomona) (#24) ·
+[FoolishWiser](https://github.com/FoolishWiser) (#17) ·
+[@jace1cch](https://github.com/jace1cch) (#16) ·
+[@Minggle](https://github.com/Minggle) (#10) ·
+[4FMTWRV](https://github.com/4FMTWRV) (#6) ·
+[glzhangzhi](https://github.com/glzhangzhi) (per-session SSH pool fix)
 
 ## Changelog
 

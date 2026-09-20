@@ -4,6 +4,8 @@
 
 # dsh-remote
 
+由 [@flymysql](https://github.com/flymysql) 维护 · [博客](https://gitpull.cn) · [讨论区](https://github.com/flymysql/dsh-remote/discussions) · [Issue](https://github.com/flymysql/dsh-remote/issues) · [English](./README.md)
+
 ## 官方 Desktop 兼容适配（实验性，尚未发布）
 
 本分支增加对 [DeepSeek 官方 Desktop](https://github.com/deepseek-ai/deepseek-harness)
@@ -222,6 +224,21 @@ scripts/dev-run.sh --status    # 是否在运行
 ## License
 
 MIT
+
+## 参与贡献
+
+欢迎贡献，请先阅读 [CONTRIBUTING.md](./CONTRIBUTING.md)。使用问题、环境配置、「支持 XX 吗」这类讨论请走 [讨论区](https://github.com/flymysql/dsh-remote/discussions)；可复现的缺陷请提 [Issue](https://github.com/flymysql/dsh-remote/issues)。
+
+感谢以下已合并 PR 的贡献者：
+
+[@dahaipeng](https://github.com/dahaipeng) (#31) ·
+[@YiHui-Liu](https://github.com/YiHui-Liu) (#28) ·
+[@nekomona](https://github.com/nekomona) (#24) ·
+[FoolishWiser](https://github.com/FoolishWiser) (#17) ·
+[@jace1cch](https://github.com/jace1cch) (#16) ·
+[@Minggle](https://github.com/Minggle) (#10) ·
+[4FMTWRV](https://github.com/4FMTWRV) (#6) ·
+[glzhangzhi](https://github.com/glzhangzhi)（per-session SSH 连接池修复）
 
 ## 变更记录
 
