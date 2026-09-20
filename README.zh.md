@@ -26,6 +26,8 @@ Desktop 安装器还可能要求明确配置 `ssh2` / `cpu-features` 可选构�
 隔离验证中禁用了这些可选脚本；本改动不放宽应用的构建白名单，也不自动批准脚本。
 
 [![npm version](https://img.shields.io/npm/v/dsh-remote)](https://www.npmjs.com/package/dsh-remote)
+[![downloads](https://img.shields.io/npm/dw/dsh-remote)](https://www.npmjs.com/package/dsh-remote)
+[![downloads](https://img.shields.io/npm/dm/dsh-remote)](https://www.npmjs.com/package/dsh-remote)
 [![license](https://img.shields.io/github/license/flymysql/dsh-remote)](LICENSE)
 [![dsh-plugin](https://img.shields.io/badge/topic-dsh--plugin-7a)](https://github.com/topics/dsh-plugin)
 
