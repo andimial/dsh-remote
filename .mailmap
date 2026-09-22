@@ -1,0 +1,13 @@
+# Normalize contributor identities so shortcuts (git log, git shortlog) and
+# the GitHub contributors list attribute commits to the right people.
+#
+# Format: Proper Name <proper@email> Commit Name <commit@email>
+
+# PR #17 (@FoolishWiser) landed with a tool-generated identity
+# "dsh-remote contributor <contributor@users.noreply.github.com>". GitHub parses
+# that address as the username "contributor" and credited an unrelated 2011
+# account of that name instead of the actual author.
+FoolishWiser <104308087+FoolishWiser@users.noreply.github.com> <contributor@users.noreply.github.com>
+
+# One contributor, two git identities (PR #16 authored as jiahiu24).
+jace1cch <3208640025@qq.com> jiahiu24 <3208640025@qq.com>
