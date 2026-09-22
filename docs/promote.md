@@ -5,19 +5,21 @@ This file is for the author; nothing here is shown in the README install flow.
 
 ---
 
-## 0. Status checklist (2026-09-17)
+## 0. Status checklist (2026-09-22)
 
 | Channel | Status |
 |---|---|
-| npm `dsh-remote` | latest **0.8.20** (history 0.1.0→0.8.20) |
+| npm `dsh-remote` | latest **0.8.21** (history 0.1.0→0.8.21, 58 versions) |
 | GitHub topics (`dsh-plugin`, `deepseek-harness`, `remote`, `ssh`, `tunnel`, `plugin`) | set |
-| GitHub Releases | keep in sync with CHANGELOG on each npm publish |
+| GitHub Releases | **all 32 tags have a release** (was 18/32; 14 back-filled 2026-09-22) |
 | awesome-dsh-plugin | listed (EN+zh) |
+| Other awesome lists | 0xsline, fendouai (EN+zh), beancookie, bruc3van — plus a Nix package (`Moraxyc/deepseek-harness.nix`) |
 | Blog posts | docs/blog/showcase-{en,zh}.md |
-| Official Discussions showcase | TODO (manual, no public API) |
+| Official Discussions showcase | **posted — #2177** (2026-08-16, 2 replies) |
+| DSH Directory (`dsh.directory`) | submitted — [issue #121](https://github.com/alexchenzl/dsh-plugin-directory/issues/121) (still open upstream) |
 | README / npm previews | in-repo relative paths (`docs/cover.png`) |
+| Contributor attribution | `.mailmap` added 2026-09-22 (fixes @FoolishWiser / PR #17) |
 | WhaleHarness audit (issue #1) | fixed in 0.5.5 |
-
 
 ## 0. GitHub repo — set Topics
 
@@ -88,10 +90,13 @@ Post to: `https://github.com/deepseek-ai/deepseek-harness/discussions`
 
 ### English
 
-> ⚠️ The ONLY remaining manual step (no public GitHub API for Discussions). Post at:
-> `https://github.com/deepseek-ai/deepseek-harness/discussions` → New discussion.
-> Suggested category: **Show and tell** (or General). English version below; Chinese version
-> further down.
+> ✅ **Already posted** — [discussion #2177](https://github.com/deepseek-ai/deepseek-harness/discussions/2177)
+> (2026-08-16). Two replies: indexed by the `dsh-subscribe` community registry, and an
+> invitation to be listed in a plugin library. Keep the text below for **re-posting on a
+> major release** (e.g. 1.0) — don't repost it for routine patch versions.
+>
+> Original target for reference: `https://github.com/deepseek-ai/deepseek-harness/discussions`
+> → New discussion, category **Show and tell** (or General).
 
 ```markdown
 ## Showcase: dsh-remote — a remote-work assistant plugin
