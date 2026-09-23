@@ -60,12 +60,13 @@ DSH 的 Web 界面刻意只监听 `127.0.0.1`（CLI 为安全拒绝 `--host 0.0.
 ## 功能
 
 - **多机 SSH** —— 可存任意多台主机（host/port/user + **私钥**或**密码**）。密码只存在本地，界面不回显；在设置里一键切当前机。每机可配 passphrase / 主机指纹策略 / SSH agent / keyboard-interactive（OTP）/ 跳板机，以及可选的 **系统钥匙串加密密码**。
-- **`~/.ssh/config` 导入** —— 设置页列出 Host 别名，一点填入表单（只引用路径，不读密钥材料）。
+- **`~/.ssh/config` 别名（实时解析，不存副本）** —— 机器可以只保存一个 **Host 别名**（`useSshConfig`）：主机名/用户/端口/私钥/跳板机**每次连接都从 `~/.ssh/config` 实时解析**，改配置立刻生效、无需重新导入；注册表里**不存这些值的副本**（私钥只引用路径，永不读内容）。支持 OpenSSH 语义：`Host a b` 多别名、`*`/`?` 通配、`!` 取反、`Include`（含通配、相对 `~/.ssh`）、行尾 `\` 续行、以及 ssh_config(5) 的**首个取值优先**规则。设置页「从 ~/.ssh/config 导入」列表里点别名即按别名保存（也可以「复制字段」成普通机器）；列表与机器行都会显示 **别名 → 实际解析到哪台机**，`ProxyJump` 多跳、`ProxyCommand` 等插件无法照做的事会**显式告警**而不是静默降级。
 - **双 tab 工作区选择器**（填充原生「Add workspace」流程）：
   - **本机** —— 走 **host 端原生系统文件夹对话框**选本地目录（或直接输入本地路径）→ 直接成为普通 DSH 本地工作区（与本地工作区共存）。优先用 DSH 的 `directoryPicker` 服务，服务缺失时**回退到插件自持的原生选择器**（macOS `osascript` / Linux `zenity`→`kdialog`）——桌面启动路径上框架服务不注册也能用。
   - **远程** —— 选择器是**居中弹窗**（窄侧边栏也不会被挤压）。先**选机器** → Windows 主机根级显示 **「此电脑」多盘视图**（`C:\`、`D:\`、`E:\`…，而不是 Git Bash 的 MSYS 根），路径框**实时补全**目录（支持 `C:\Users\…` 或 `/c/Users/…` 任意写法，Windows 路径在底层自动改写为 Git Bash 形式）；**选中一个目录立即列出它下一级**（OS/VSCode 式级联）。另有 **「浏览…」文件选择式浮层**（Windows 面包屑 `此电脑 / C:\ / Users / dev` 可点击跳级、驱动器行、大小/时间、跟随软链），选中**回填输入框不提交**，你复核/修改后再确定；「回上一级」任意深度可用（包括浮层直接打开在路径栏当前路径时）。**最近工作区**快捷入口、**`~` 主目录**、**新建目录**一键可达。确定会创建**真实本地镜像**（`$DSH_HOME/remote-workspaces/<host>-<user>-<port>/<basename>`；仅当同主机上**别的远端路径**已占用同名 basename 时才追加短路径 hash）→ harness 把它当真实工作区收养，同时 dsh-remote 通过 SFTP 保持同步。所选工作区会**持久化到该机器**，重启不丢。
 - **Git Bash 默认终端（Windows 主机）** —— 自动探测远程平台（`cmd /c ver`，附 `uname -s` 的 MINGW/MSYS 探测兜底）；Windows 机器自动定位 Git Bash（`config.shell` 可显式指定或 `native` 关闭），所有命令经 `bash -s` 从 SSH 通道 stdin 管道执行，不依赖 cmd/PowerShell，也不受引号/反斜杠转义困扰；`rw_exec` 默认在 Git Bash 形式的 cwd（`/c/Users/…`）下执行。`/dsh-remote/status`、`rw_info`、设置页「测试连接」都会报告检测到的平台与 shell。
 - **Windows 路径自动改写** —— 用户输入 `C:\Users\dev\project`（或 `C:/…`、`/c/…`、`/C:/…`）时底层自动规范为 Git Bash 形式 `/c/Users/dev/project` 执行；工作区存储与展示为 Windows 形式 `C:\Users\dev\project`。模型工具全部接受并展示两种写法；SFTP 访问使用 Win32-OpenSSH 的 `/D:/…` 形式（见 `toSftpPath`）。
+- **远程 `@` 补全（issue #39）** —— 远程会话里输入 `@` 会**列出远端目录树**（走 SFTP 实时读，不是本地镜像）。目录逐级下钻、无斜杠时在整棵树上模糊匹配，候选是**相对远程工作区根的路径**（`@src/main.c`），与本地会话的写法一致；`rw_*` 工具接受这种相对路径并自动拼到远程工作区根上。索引有预算保护（条目/目录/时限 + 缓存 + 失败熔断），**远端不可达时自动回退到本地镜像**（不会静默变成空列表）。本地会话完全不受影响。
 - **双向 SFTP 同步（三路冲突检测）** —— `rw_sync`（远程→镜像）、`rw_push`（镜像→远程）。两边都改过的文件会列出冲突、绝不静默覆盖（`force=true` 覆盖）。默认 **深度 8 / 2000 文件**，触顶会标明 **`TRUNCATED`**。支持 dry-run、后台任务、gitignore 风格 ignore 规则。
 - **模型工具（20 个）** —— `rw_info`、`rw_connect`、`rw_pick_workspace`、`rw_list_dir`、`rw_stat`、`rw_read_file`（utf-8/gbk）、`rw_write_file`、`rw_edit`（字面替换 + mtime 乐观锁）、`rw_append`、`rw_mkdir`、`rw_remove`、`rw_move`、`rw_exec`、`rw_search`（POSIX 优先 rg/grep，否则 SFTP 遍历）、`rw_download`/`rw_upload`、`rw_forward`、`rw_sync`、`rw_push`、`rw_disconnect`。
 - **端口转发面板** —— 设置页或 `rw_forward` 创建/启停本地与反向隧道。
@@ -216,6 +217,11 @@ scripts/dev-run.sh --status    # 是否在运行
 | `connectTimeoutMs` | int | 15000 | SSH 连接超时 |
 | `maxFileBytes` | int | 52428800 | 镜像同步时跳过超过该大小的文件（0=不设上限） |
 | `hostKeyMode` | string | `accept-new` | 主机指纹策略：`accept-new`（首次信任）、`verify`（拒绝未知主机）、`off`（跳过校验） |
+| `fileReference` | bool | `true` | 远程 `@` 补全：远程会话的 `@` 列出**远端**目录树（issue #39）；关闭则只有本地镜像 |
+| `fileReferenceMaxResults` | int | `20` | 一次 `@` 查询最多返回多少候选 |
+| `fileReferenceMaxEntries` | int | `3000` | 一棵远程工作区索引最多保留多少条目 |
+| `fileReferenceExcludedDirectories` | string[] | `[.git, node_modules, dist, build, out, coverage, target, .next, .nuxt, .turbo, .venv, __pycache__, .pytest_cache, .mypy_cache, .gradle]` | 远程 `@` 遍历跳过的目录名 |
+| `fileReferenceTimeoutMs` | int | `4000` | 一次远程索引遍历的墙钟预算（超时用已扫到的部分结果，不让光标等） |
 
 ## 安全提醒
 
