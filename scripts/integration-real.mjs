@@ -17,8 +17,8 @@
 // Credentials: DSH_IT_MACHINES points at a machines.json (defaults to the
 // real DSH home's), or set DSH_IT_HOST/PORT/USERNAME/PASSWORD directly.
 import { EventEmitter } from 'node:events'
-import { readFileSync, existsSync, mkdirSync, writeFileSync, mkdtempSync, readdirSync } from 'node:fs'
-import { homedir } from 'node:os'
+import { readFileSync, existsSync, mkdirSync, writeFileSync, mkdtempSync, readdirSync, rmSync } from 'node:fs'
+import { homedir, tmpdir } from 'node:os'
 import path from 'node:path'
 import net from 'node:net'
 import { apply } from '../lib/index.js'
@@ -28,7 +28,15 @@ const MACHINES = process.env.DSH_IT_MACHINES || path.join(HOME, '.dsh', 'remote-
 
 function loadMachine() {
   if (process.env.DSH_IT_HOST) {
-    return { host: process.env.DSH_IT_HOST, port: Number(process.env.DSH_IT_PORT) || 22, username: process.env.DSH_IT_USERNAME || 'root', password: process.env.DSH_IT_PASSWORD || '', workspace: process.env.DSH_IT_WORKSPACE || '' }
+    return {
+      host: process.env.DSH_IT_HOST,
+      port: Number(process.env.DSH_IT_PORT) || 22,
+      username: process.env.DSH_IT_USERNAME || 'root',
+      password: process.env.DSH_IT_PASSWORD || '',
+      privateKeyPath: process.env.DSH_IT_KEY || '',
+      passphrase: process.env.DSH_IT_KEY_PASSPHRASE || '',
+      workspace: process.env.DSH_IT_WORKSPACE || '',
+    }
   }
   const j = JSON.parse(readFileSync(MACHINES, 'utf8'))
   const m = (j.list || []).find((x) => x.id === j.currentId) || (j.list || [])[0]
@@ -47,12 +55,25 @@ function makeCtx() {
   const systemPrompt = { section: (s) => promptSections.push(s) }
   const commandsSvc = { register: (c) => commands.push(c) }
   const webServer = { register: (r) => { routes.push(r); return () => {} } }
+  // Stand-in for @deepseek-ai/dsh-file-reference-local: dsh-remote WRAPS this
+  // service (issue #39), so its answer is the "local session" control sample.
+  const originalList = (agent, query) => Promise.resolve([{ path: 'LOCAL-ONLY.txt', kind: 'file' }])
+  const fileReferences = { list: originalList }
+  // Capture the plugin's own warnings: a swallowed @ listing failure would look
+  // exactly like "the remote tree is empty", which is the bug under test.
+  const warnings = []
+  const logger = {
+    warn: (...parts) => warnings.push(parts.map((p) => (typeof p === 'string' ? p : JSON.stringify(p))).join(' ')),
+    info: () => {}, debug: () => {}, error: (...parts) => warnings.push(parts.join(' ')),
+  }
   const ctx = {
     get(name) {
       if (name === 'tools') return toolsSvc
       if (name === 'systemPrompt') return systemPrompt
       if (name === 'webServer') return webServer
       if (name === 'commands') return commandsSvc
+      if (name === 'fileReferences') return fileReferences
+      if (name === 'logger') return logger
       return undefined
     },
     effect(fn) { effects.push(fn) },
@@ -63,7 +84,8 @@ function makeCtx() {
   ctx.systemPrompt = systemPrompt
   ctx.webServer = webServer
   ctx.commands = commandsSvc
-  return { ctx, tools, commands, promptSections, routes, effects }
+  ctx.fileReferences = fileReferences
+  return { ctx, tools, commands, promptSections, routes, effects, fileReferences, originalList, warnings }
 }
 
 /** Dispatch a route handler with a fake req/res; body fed via events. */
@@ -112,14 +134,36 @@ async function main() {
   const machine = loadMachine()
   const config = {
     host: machine.host, port: machine.port || 22, username: machine.username || 'root',
-    password: machine.password || '', privateKeyPath: '', passphrase: '',
+    password: machine.password || '', privateKeyPath: machine.privateKeyPath || '', passphrase: machine.passphrase || '',
     workspace: machine.workspace || '', commandTimeoutMs: 20000, connectTimeoutMs: 15000,
     maxOutputChars: 200000, maxFileBytes: 52428800, hostKeyMode: 'accept-new',
     useAgent: false, keyboardInteractive: false, autoPush: false, auditLog: true, encoding: 'utf-8',
+    fileReference: true, fileReferenceMaxResults: 20, fileReferenceMaxEntries: 3000, fileReferenceTimeoutMs: 4000,
   }
   console.log(`\n== dsh-remote real-machine integration (${config.username}@${config.host}:${config.port}, workspace ${config.workspace || '<none>'}) ==\n`)
 
-  const { ctx, tools, commands, promptSections, routes, effects } = makeCtx()
+  // Seed the scratch registry with this machine, the way the settings page (or
+  // a previous run) would: session-bound pools resolve their credentials from
+  // the registry, so an empty one would leave every mirror-bound tool with no
+  // credentials at all.
+  {
+    const root = path.join(process.env.DSH_HOME, 'remote-workspaces')
+    mkdirSync(root, { recursive: true })
+    const rec = {
+      id: 'it-machine',
+      name: machine.name || machine.host,
+      host: config.host,
+      port: config.port,
+      username: config.username,
+      password: config.password || '',
+      privateKeyPath: config.privateKeyPath || '',
+      passphrase: config.passphrase || '',
+      workspace: config.workspace || '',
+    }
+    writeFileSync(path.join(root, 'machines.json'), JSON.stringify({ list: [rec], currentId: rec.id }, null, 2))
+  }
+
+  const { ctx, tools, commands, promptSections, routes, effects, fileReferences, originalList, warnings } = makeCtx()
   await apply(ctx, config)
 
   const tool = tools
@@ -133,6 +177,7 @@ async function main() {
   {
     const { status, json } = await dispatch(routes, 'POST', '/dsh-remote/test-connect', {
       host: config.host, port: config.port, username: config.username, password: config.password,
+      privateKeyPath: config.privateKeyPath, passphrase: config.passphrase,
     })
     check('test-connect (real SSH + TOFU)', status === 200 && json && json.ok === true && typeof json.latencyMs === 'number' && json.latencyMs >= 0, json && json.error)
     const kh = path.join(process.env.DSH_HOME, 'remote-workspaces', 'known_hosts.json')
@@ -234,9 +279,16 @@ async function main() {
     await toolExec(tool, 'rw_pick_workspace', { path: '/root' })
     const r = await toolExec(tool, 'rw_sync', { depth: 2, maxFiles: 20 })
     const files = (r.text.match(/Downloaded (\d+) file/) || [])[1]
-    check('rw_sync real download', Number(files) >= 1, r.text.slice(0, 120))
     const mirror = path.join(process.env.DSH_HOME, 'remote-workspaces', `${config.host}-root-${config.port}`, 'root')
-    check('mirror populated on disk', existsSync(mirror) && readdir_nonempty(mirror), mirror)
+    // `/root` is often unreadable for a non-root login (mode 0700): 0 files is
+    // then the correct answer, not a regression — assert the mirror instead only
+    // when the remote directory actually had something to download.
+    if (Number(files) >= 1) {
+      check('rw_sync real download', true)
+      check('mirror populated on disk', existsSync(mirror) && readdir_nonempty(mirror), mirror)
+    } else {
+      skip('rw_sync real download', `the remote dir yielded no files (${r.text.split('\n')[0].slice(0, 80)})`)
+    }
     const p2 = await toolExec(tool, 'rw_push', { dryRun: true, maxFiles: 20 })
     check('rw_push dryRun says WOULD', /WOULD upload/.test(p2.text), p2.text.slice(0, 120))
     await toolExec(tool, 'rw_pick_workspace', { path: orig })
@@ -277,7 +329,7 @@ async function main() {
     check('forget-key', fk.status === 200 && fk.json && fk.json.ok === true)
     const kh = path.join(process.env.DSH_HOME, 'remote-workspaces', 'known_hosts.json')
     check('known_hosts cleared', existsSync(kh) && !JSON.stringify(readFileSync(kh, 'utf8')).includes(`${config.host}:${config.port}`))
-    const rc = await dispatch(routes, 'POST', '/dsh-remote/test-connect', { host: config.host, port: config.port, username: config.username, password: config.password })
+    const rc = await dispatch(routes, 'POST', '/dsh-remote/test-connect', { host: config.host, port: config.port, username: config.username, password: config.password, privateKeyPath: config.privateKeyPath, passphrase: config.passphrase })
     check('reconnect after forget-key re-records', rc.status === 200 && rc.json && rc.json.ok === true && JSON.stringify(readFileSync(kh, 'utf8')).includes(`${config.host}:${config.port}`), rc.json && rc.json.error)
   }
   // 17. audit log + ssh-config + tasks + commands + prompt
@@ -293,16 +345,126 @@ async function main() {
     check('unknown task → 404', tnf.status === 404)
     const cmd = commands[0].handler({})
     check('/remote command', cmd && cmd.kind === 'success' && cmd.text.includes(config.host), cmd && cmd.text.slice(0, 80))
-    const promptText = promptSections[0].text()
-    check('system prompt mentions workspace', typeof promptText === 'string' && promptText.includes(config.workspace), promptText.slice(0, 80))
+    // (the system-prompt section is session-scoped: it is asserted in section 18
+    // with a real mirror cwd, because with no promptContext it is intentionally
+    // empty — a local session must get no remote section at all.)
   }
-  // 18. cleanup effects (plugin stop) must not throw
+  // 18. remote `@` completion (issue #39) against the REAL host
+  //
+  // A remote session's cwd is its local MIRROR directory — which is deliberately
+  // EMPTY here — so `@` must be answered from the remote tree over SFTP while a
+  // local session keeps the harness's own provider untouched.
+  {
+    const base = 'at-completion'
+    const mirrorDir = path.join(process.env.DSH_HOME, 'remote-workspaces', `${config.host}-${config.username}-${config.port}`, base)
+    mkdirSync(mirrorDir, { recursive: true })
+    writeFileSync(path.join(mirrorDir, '.dsh-remote-meta.json'), JSON.stringify({ host: config.host, port: config.port, username: config.username, remotePath: config.workspace }))
+    const remoteAgent = { session: { header: { cwd: mirrorDir } } }
+    check('the @ overlay replaced ctx.fileReferences.list', fileReferences.list !== originalList)
+
+    // The system-prompt section is session-scoped: with this mirror cwd it must
+    // describe the REMOTE root and the `@` namespace.
+    const promptText = promptSections[0].text({ agent: remoteAgent })
+    check('system prompt names the remote workspace', typeof promptText === 'string' && promptText.includes(config.workspace), promptText.slice(0, 100))
+    check('system prompt explains the @ namespace', promptText.includes('@path') && promptText.includes('rw_read_file'), promptText.slice(0, 200))
+    check('a LOCAL session gets no remote prompt section', promptSections[0].text({ agent: { session: { header: { cwd: tmpdir() } } } }) === '')
+
+    const rootLs = await dispatch(routes, 'GET', '/dsh-remote/ls?path=' + encodeURIComponent(config.workspace))
+    const rootNames = ((rootLs.json && rootLs.json.items) || []).filter((it) => !it.name.startsWith('.')).map((it) => it.name)
+    const listed = await fileReferences.list(remoteAgent, '')
+    check('@ lists the REMOTE tree, not the empty local mirror', listed.length > 0, `remote entries=${rootNames.length}, candidates=${listed.length}, mirror files=${readdirSync(mirrorDir).length}`)
+    check('@ candidates are workspace-relative paths', listed.every((c) => c.path && !c.path.startsWith('/') && c.path !== '.dsh-remote-meta.json'), JSON.stringify(listed.slice(0, 3)))
+    check('@ includes a real remote entry', listed.some((c) => rootNames.includes(c.path.replace(/\/$/, ''))), JSON.stringify(listed.slice(0, 5)))
+
+    // Drill into a real remote directory (the `@"dir/` continuation flow).
+    const aDir = listed.find((c) => c.kind === 'directory')
+    if (aDir) {
+      const sub = await dispatch(routes, 'GET', '/dsh-remote/ls?path=' + encodeURIComponent(`${String(config.workspace).replace(/\/+$/, '')}/${aDir.path}`))
+      const subNames = ((sub.json && sub.json.items) || []).map((it) => it.name)
+      const drilled = await fileReferences.list(remoteAgent, aDir.path + '/')
+      check('@ drills into a remote subdirectory', drilled.every((c) => c.path.startsWith(aDir.path + '/')), JSON.stringify(drilled.slice(0, 3)))
+      if (subNames.length) check('@ drill returns that directory\'s children', drilled.length > 0, `${aDir.path}: remote=${subNames.length} candidates=${drilled.length}`)
+    } else {
+      skip('@ drill', 'the workspace root has no subdirectory to drill into')
+    }
+
+    // A bare query is fuzzy over the whole remote tree (bounded traversal).
+    const needle = (rootNames.find((n) => n.length >= 3) || '').slice(0, 3)
+    if (needle) {
+      const fuzzy = await fileReferences.list(remoteAgent, needle)
+      const lower = needle.toLowerCase()
+      check('@ fuzzy query searches the remote tree', fuzzy.length > 0 && fuzzy.every((c) => c.path.length > 0), `${needle} → ${JSON.stringify(fuzzy.slice(0, 3).map((c) => c.path))}`)
+      check('@ fuzzy hits are remote entries, not the local mirror', fuzzy.some((c) => c.path.toLowerCase().includes(lower)), `${needle} → ${JSON.stringify(fuzzy.slice(0, 5).map((c) => c.path))}`)
+    } else {
+      skip('@ fuzzy query', 'no remote entry long enough for a needle')
+    }
+
+    // The control sample: a LOCAL session must still be served by the harness.
+    const localAgent = { session: { header: { cwd: tmpdir() } } }
+    const local = await fileReferences.list(localAgent, '')
+    check('local session keeps the harness provider (delegation intact)', local.length === 1 && local[0].path === 'LOCAL-ONLY.txt', JSON.stringify(local))
+
+    // rc_* tools must accept the workspace-relative paths `@` produces.
+    const relRead = await toolExec(tool, 'rw_list_dir', { path: aDir ? aDir.path : '' })
+    check('rw_list_dir accepts a workspace-relative path', typeof relRead.text === 'string' && !/not found|error/i.test(relRead.text.slice(0, 200)), relRead.text.slice(0, 100))
+  }
+  // 19. ~/.ssh/config ALIAS over a REAL connection (issue #38)
+  //
+  // The machine exists ONLY as an alias in a scratch ~/.ssh/config: host, port,
+  // user and key come from that file at connect time, and the registry must keep
+  // nothing but the alias name.
+  {
+    const home = mkdtempSync(path.join(tmpdir(), 'dsh-remote-it-home-'))
+    mkdirSync(path.join(home, '.ssh'), { recursive: true })
+    writeFileSync(path.join(home, '.ssh', 'config'), [
+      'Host it-alias',
+      `  HostName ${config.host}`,
+      `  Port ${config.port}`,
+      `  User ${config.username}`,
+      config.privateKeyPath ? `  IdentityFile ${config.privateKeyPath}` : '',
+    ].filter(Boolean).join('\n') + '\n')
+    const savedHome = process.env.HOME
+    const savedProfile = process.env.USERPROFILE
+    process.env.HOME = home
+    process.env.USERPROFILE = home
+    // The resolver memoises the config text for ~2s (so one request resolving
+    // several machines reads the file once) — outwait it after switching homes.
+    await new Promise((r) => setTimeout(r, 2100))
+    try {
+      const connect = tool.find((t) => t.name === 'rw_connect')
+      let connectErr = null
+      await connect.execute({ host: 'it-alias', useSshConfig: true, save: true }).catch((e) => { connectErr = e })
+      check('rw_connect connects through a ~/.ssh/config alias', !connectErr, connectErr && connectErr.message)
+      const st = await dispatch(routes, 'GET', '/dsh-remote/status')
+      check('the alias resolved to the real host/port', st.json.host === config.host && Number(st.json.port) === Number(config.port), JSON.stringify({ host: st.json.host, port: st.json.port, user: st.json.username }))
+      const reg = JSON.parse(readFileSync(path.join(process.env.DSH_HOME, 'remote-workspaces', 'machines.json'), 'utf8'))
+      const rec = reg.list.find((m) => m.host === 'it-alias')
+      check('the registry kept the alias, not a copy of the resolved values', !!rec && rec.useSshConfig === true && !JSON.stringify(rec).includes(config.host), JSON.stringify(rec))
+    } finally {
+      if (savedHome === undefined) delete process.env.HOME; else process.env.HOME = savedHome
+      if (savedProfile === undefined) delete process.env.USERPROFILE; else process.env.USERPROFILE = savedProfile
+      rmSync(home, { recursive: true, force: true })
+    }
+  }
+  // 20. cleanup effects (plugin stop) must not throw
   {
     let threw = false
-    try { for (const e of effects) e() } catch (err) { threw = true; console.log('  effect threw:', err.message) }
+    try {
+      // The mock registry stores the factories cordis would call; cordis then
+      // calls whatever disposer each factory RETURNS, so do both here.
+      for (const e of effects) {
+        const disposer = e()
+        if (typeof disposer === 'function') disposer()
+      }
+    } catch (err) { threw = true; console.log('  effect threw:', err.message) }
     check('plugin disposers run cleanly', !threw)
+    check('the @ overlay is removed on dispose (ctx.fileReferences restored)', fileReferences.list === originalList)
   }
 
+  if (warnings.length) {
+    console.log(`\n-- plugin warnings (${warnings.length}) --`)
+    for (const w of warnings.slice(0, 20)) console.log('   ' + w)
+  }
   console.log(`\n== RESULT: ${pass} passed, ${fail} failed${skipped.length ? ', ' + skipped.length + ' skipped (' + skipped.join('; ') + ')' : ''} ==`)
   process.exit(fail ? 1 : 0)
 }

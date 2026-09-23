@@ -2,6 +2,78 @@
 
 All notable changes to **dsh-remote**.
 
+## 0.8.22 — 2026-09-23
+### 新功能：远程会话里的 `@` 文件补全（issue #39）+ `~/.ssh/config` 别名实时解析（issue #38）
+
+**issue #39 —— 在 dsh 中使用 `@` 无法检索到远程目录中的文件**
+
+- **现象**：本地工作区里输入 `@` 会列出目录下的文件；用插件选了**远程**工作区后，
+  `@` 什么都搜不到。
+- **根因**：harness 的 `@` 候选来自 `ctx.fileReferences`，其唯一随包提供的 provider
+  （`@deepseek-ai/dsh-file-reference-local`）索引的是**该 agent 会话 cwd 的本地文件系统**。
+  而远程会话的 cwd 是**本地镜像目录** —— `ensureMirror()` 只创建目录和
+  `.dsh-remote-meta.json`，**内容要等用户 `rw_sync` 才出现**（实测目录里除 meta 外为空），
+  于是 `@` 列出 0 项。seam 的官方文档恰好点名了这个缺口：
+  "other namespaces (remote or virtual filesystems) need a provider whose discovery
+  matches the effective tools"。
+- **修复**：新增 `lib/file-reference.js`。`ctx.fileReferences` 是单属主服务，不能再挂一个
+  provider，因此**包装 `fileReferences.list`**：agent 的 cwd 落在某个镜像里 → 改从**远端**
+  经 SFTP 列目录/建索引；**其余调用一律原样委派**给原实现（本地会话完全不受影响）。
+- **语义与本地一致**：候选是**相对远程工作区根**的路径（`@src/main.c`），目录逐级下钻；
+  无斜杠的查询在整棵远端树上模糊匹配（排序与本地 provider 同源）；隐藏项只有在查询以 `.`
+  开头时出现；`.git`/`node_modules` 等默认跳过；`..` 段永远不能逃出工作区根。
+- **成本控制**：条目上限 3000、目录上限 300、墙钟预算 4s、索引缓存 10s
+  （过期时旧索引先答、新遍历在背后重建）、失败的远端在 30s 内**熔断**直接回退本地镜像 ——
+  否则一个连不上的主机能让每次按键都等一次 SSH 超时。
+- **口径对齐**：`rw_*` 工具现在接受**工作区相对路径**（新增 `resolveRemoteArg`，绝对路径
+  行为不变），所以 `@` 提示出的相对路径可以直接喂给 `rw_read_file`；系统提示的
+  `## Remote workspace` 段落也明确写了「`@path` 是相对**远端**根的路径、harness 内置
+  read 工具只看得到本地镜像」。
+- **实测（真机，非 mock）**：`scripts/integration-real.mjs` 新增第 18 节，对
+  `jimmycppliu@9.134.186.191:36000` 的真机 + 真 SFTP 断言：`@` 列出的是**远端**条目
+  （工作区根 + 下钻 + 模糊查询都命中远端真实文件）、候选是相对路径、本地会话仍拿到原
+  provider 的答案、dispose 后 `fileReferences.list` 被还原。**56 项通过 / 0 失败**
+  （唯一 skip 项是本机 `/root` 无权限读取属环境所致，已改成跳过而非误报失败）。
+
+**issue #38 —— 支持从 `~/.ssh/config` 解析读取配置（插件自己不存副本）**
+
+- **诉求**：像 VSCode Remote-SSH 那样把 `~/.ssh/config` 当**唯一事实来源**；插件只做解析，
+  不再自己复制一份配置。
+- **实现**：机器可以按**别名**保存（`useSshConfig: true`，`host` 就是 `Host` 名字）。
+  注册表里**不存** HostName/用户/端口/私钥/跳板机 —— 每次连接**实时解析**，改
+  `~/.ssh/config` 立刻生效，不需要重新导入（配置文本 memo 2s，避免一次请求里多台机器
+  反复读盘）。设置页「从 ~/.ssh/config 导入」里点别名即按别名保存，另有「复制字段」
+  按钮保留旧的"填表单"路径；机器行/表单会显示 **别名 → 解析到 user@host:port**。
+- **OpenSSH 语义**（不是"读取几个字段"那么简单，全部有单测）：
+  `Host a b` 多别名、`*`/`?` 通配、`!` 取反、`Include`（通配展开、相对路径按 ssh_config(5)
+  先相对 `~/.ssh`、含深度与环检测）、行尾 `\` 续行、参数名/主机名大小写不敏感、引号值，
+  以及最容易被忽略的一条：**ssh_config(5) 的"首个取值优先"是跨 block 的**（后面的
+  `Host x` 不会覆盖前面已设过的参数；`Host *` 放在文件开头会赢得它设的参数）。
+- **跳板机**：`ProxyJump` 的**单跳**会映射到插件的 `proxy`，并**递归解析跳板机自己的
+  配置**（host/user/port/IdentityFile）。多跳链、`ProxyCommand` 插件无法照做 ——
+  于是**显式告警**（设置页黄字 + `rw_connect` 返回文本 + 服务端 logger），绝不静默降级。
+- **不跨机器串味**：镜像 meta 记录创建时的别名（`alias`），`machineRecordFor` 先按别名、
+  再按**解析后的身份**（host/port/user）匹配 —— 于是别名的主机名/端口在
+  `~/.ssh/config` 里改过之后，老镜像仍然能找回自己的机器与凭据。
+- **默认关闭**：没有 `useSshConfig` 的机器行为**完全不变**（单测断言：同名 `build` 在未开
+  别名时仍然连 `build:22`，不会被 `~/.ssh/config` 偷偷改道）。
+- **实测**：新增 `test/sshconfig-alias.test.js`（25 项）。其中最关键的一条复现了 issue 的
+  完整工作流：把 `HOME` 指向带 `~/.ssh/config` 的临时目录 → 保存别名机器 → **改写
+  配置文件** → 同一条 `/dsh-remote/machines` 响应里的解析结果变成新主机/新用户/新端口，
+  而 `machines.json` **一个字节都没动**（断言里不含 `127.0.0.1`/`mmdev`）。另外用真实
+  `~/.ssh/config` 跑了一次解析：`9.134.186.191` → `jimmycppliu@…:36000` +
+  `IdentityFile ~/.ssh/id_rsa` —— 与"只有 id_rsa 能过 ssh2 认证"的实测结论一致。
+
+**其它**
+
+- `scripts/integration-real.mjs`：支持 `DSH_IT_KEY`（用私钥跑真机集成；本次实测发现
+  9.134.186.191 对 ssh2 **只认 id_rsa，不认 id_ed25519**）；启动前把机器写进隔离
+  registry（否则会话绑定的池拿不到凭据）；收集插件 logger 警告；修正一个**早就失效**的
+  断言（系统提示段落是会话级的，之前用 `text()` 无参调用恒为空 → 现在用真实镜像 cwd
+  断言，并补上"本地会话不该有远程段落"）；`/root` 不可读时 sync 断言改为 skip 而非误报。
+- 测试：`npm test` **179 项全绿**（原 128 + file-reference 26 + sshconfig-alias 25）；
+  `node check.mjs` 通过。
+
 ## 0.8.21 — 2026-09-18
 ### 修复：主色按钮/分段页签的文字用了「填充 token」，导致对比度不足甚至不可见
 
