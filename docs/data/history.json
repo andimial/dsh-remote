@@ -1,13 +1,13 @@
 [
   {
     "day": "2026-09-30",
-    "at": "2026-09-30T03:58:22.243Z",
-    "dau": 0,
-    "wau": 0,
-    "mau": 0,
-    "installs": 0,
+    "at": "2026-09-30T18:00:07.139Z",
+    "dau": null,
+    "wau": null,
+    "mau": null,
+    "installs": null,
     "npmLastWeek": 1814,
-    "stars": 108,
+    "stars": 111,
     "forks": 24
   }
 ]

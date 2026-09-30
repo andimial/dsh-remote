@@ -1,141 +1,10 @@
 {
-  "generatedAt": "2026-09-30T03:58:22.243Z",
-  "heartbeat": {
-    "ok": true,
-    "daily": [
-      {
-        "day": "2026-09-01",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-02",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-03",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-04",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-05",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-06",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-07",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-08",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-09",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-10",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-11",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-12",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-13",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-14",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-15",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-16",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-17",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-18",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-19",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-20",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-21",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-22",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-23",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-24",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-25",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-26",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-27",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-28",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-29",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-30",
-        "dau": 0
-      }
-    ],
-    "installs": 0,
-    "wau": 0,
-    "mau": 0,
-    "byVersion": [],
-    "byPlatform": [],
-    "tz": "Asia/Shanghai",
-    "generatedAt": "2026-09-30T03:58:20.251Z"
-  },
-  "heartbeatError": null,
+  "generatedAt": "2026-09-30T18:00:07.139Z",
+  "heartbeat": null,
+  "heartbeatError": "DSH_HB_STATS_KEY not set; skipping heartbeat stats (npm/repo data still refreshed)",
   "npm": {
     "package": "dsh-remote",
-    "checkedAt": "2026-09-30T03:58:21.965Z",
+    "checkedAt": "2026-09-30T18:00:06.599Z",
     "lastWeek": 1814,
     "lastMonth": 8241,
     "daily": [
@@ -269,9 +138,9 @@
     "note": "npm daily counts have reporting gaps; zero-value days are flagged and are not real zero usage."
   },
   "repo": {
-    "stars": 108,
+    "stars": 111,
     "forks": 24,
     "openIssues": 2,
-    "pushedAt": "2026-09-30T03:57:43Z"
+    "pushedAt": "2026-09-30T12:33:17Z"
   }
 }
