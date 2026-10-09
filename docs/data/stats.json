@@ -1,12 +1,8 @@
 {
-  "generatedAt": "2026-10-09T13:14:17.048Z",
+  "generatedAt": "2026-10-09T22:37:00.409Z",
   "heartbeat": {
     "ok": true,
     "daily": [
-      {
-        "day": "2026-09-10",
-        "dau": 0
-      },
       {
         "day": "2026-09-11",
         "dau": 0
@@ -121,48 +117,52 @@
       },
       {
         "day": "2026-10-09",
-        "dau": 685
+        "dau": 727
+      },
+      {
+        "day": "2026-10-10",
+        "dau": 107
       }
     ],
-    "installs": 1321,
+    "installs": 1352,
     "wau": 20,
     "mau": 20,
     "byVersion": [
       {
-        "version": "0.8.37",
-        "n": 235
+        "version": "0.8.42",
+        "n": 307
       },
       {
-        "version": "0.8.41",
-        "n": 180
+        "version": "0.8.37",
+        "n": 224
       },
       {
         "version": "0.8.36",
-        "n": 166
-      },
-      {
-        "version": "0.8.42",
-        "n": 120
-      },
-      {
-        "version": "0.8.40",
-        "n": 97
+        "n": 165
       },
       {
         "version": "0.8.34",
-        "n": 89
+        "n": 88
+      },
+      {
+        "version": "0.8.40",
+        "n": 62
       },
       {
         "version": "0.8.35",
-        "n": 53
+        "n": 49
+      },
+      {
+        "version": "0.8.41",
+        "n": 48
       },
       {
         "version": "0.8.39",
-        "n": 15
+        "n": 13
       },
       {
         "version": "0.8.38",
-        "n": 12
+        "n": 11
       },
       {
         "version": "0.8.28",
@@ -224,12 +224,12 @@
       }
     ],
     "tz": "Asia/Shanghai",
-    "generatedAt": "2026-10-09T13:14:14.652Z"
+    "generatedAt": "2026-10-09T22:36:58.179Z"
   },
   "heartbeatError": null,
   "npm": {
     "package": "dsh-remote",
-    "checkedAt": "2026-10-09T13:14:16.755Z",
+    "checkedAt": "2026-10-09T22:37:00.076Z",
     "latest": "0.8.42",
     "lastWeek": 2671,
     "lastMonth": 10821,
@@ -364,9 +364,9 @@
     "note": "npm daily counts have reporting gaps; zero-value days are flagged and are not real zero usage."
   },
   "repo": {
-    "stars": 128,
+    "stars": 129,
     "forks": 28,
     "openIssues": 2,
-    "pushedAt": "2026-10-09T10:05:16Z"
+    "pushedAt": "2026-10-09T13:14:18Z"
   }
 }
