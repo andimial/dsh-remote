@@ -1,243 +1,14 @@
 {
-  "generatedAt": "2026-10-09T22:37:00.409Z",
-  "heartbeat": {
-    "ok": true,
-    "daily": [
-      {
-        "day": "2026-09-11",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-12",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-13",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-14",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-15",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-16",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-17",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-18",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-19",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-20",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-21",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-22",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-23",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-24",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-25",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-26",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-27",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-28",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-29",
-        "dau": 0
-      },
-      {
-        "day": "2026-09-30",
-        "dau": 149
-      },
-      {
-        "day": "2026-10-01",
-        "dau": 43
-      },
-      {
-        "day": "2026-10-02",
-        "dau": 85
-      },
-      {
-        "day": "2026-10-03",
-        "dau": 257
-      },
-      {
-        "day": "2026-10-04",
-        "dau": 248
-      },
-      {
-        "day": "2026-10-05",
-        "dau": 276
-      },
-      {
-        "day": "2026-10-06",
-        "dau": 331
-      },
-      {
-        "day": "2026-10-07",
-        "dau": 356
-      },
-      {
-        "day": "2026-10-08",
-        "dau": 628
-      },
-      {
-        "day": "2026-10-09",
-        "dau": 727
-      },
-      {
-        "day": "2026-10-10",
-        "dau": 107
-      }
-    ],
-    "installs": 1352,
-    "wau": 20,
-    "mau": 20,
-    "byVersion": [
-      {
-        "version": "0.8.42",
-        "n": 307
-      },
-      {
-        "version": "0.8.37",
-        "n": 224
-      },
-      {
-        "version": "0.8.36",
-        "n": 165
-      },
-      {
-        "version": "0.8.34",
-        "n": 88
-      },
-      {
-        "version": "0.8.40",
-        "n": 62
-      },
-      {
-        "version": "0.8.35",
-        "n": 49
-      },
-      {
-        "version": "0.8.41",
-        "n": 48
-      },
-      {
-        "version": "0.8.39",
-        "n": 13
-      },
-      {
-        "version": "0.8.38",
-        "n": 11
-      },
-      {
-        "version": "0.8.28",
-        "n": 7
-      },
-      {
-        "version": "0.8.25",
-        "n": 6
-      },
-      {
-        "version": "0.8.29",
-        "n": 6
-      },
-      {
-        "version": "0.8.31",
-        "n": 6
-      },
-      {
-        "version": "0.8.26",
-        "n": 3
-      },
-      {
-        "version": "0.8.27",
-        "n": 1
-      },
-      {
-        "version": "0.0.0-probe2",
-        "n": 1
-      },
-      {
-        "version": "0.8.99",
-        "n": 1
-      },
-      {
-        "version": "0.8.38-rc2",
-        "n": 1
-      },
-      {
-        "version": "0.8.38-rc3",
-        "n": 1
-      }
-    ],
-    "byPlatform": [
-      {
-        "platform": "win32",
-        "n": 666
-      },
-      {
-        "platform": "linux",
-        "n": 194
-      },
-      {
-        "platform": "darwin",
-        "n": 135
-      },
-      {
-        "platform": "other",
-        "n": 5
-      }
-    ],
-    "tz": "Asia/Shanghai",
-    "generatedAt": "2026-10-09T22:36:58.179Z"
-  },
-  "heartbeatError": null,
+  "generatedAt": "2026-10-10T05:51:45.946Z",
+  "heartbeat": null,
+  "heartbeatError": "DSH_HB_STATS_KEY not set; skipping heartbeat stats (npm/repo data still refreshed)",
   "npm": {
     "package": "dsh-remote",
-    "checkedAt": "2026-10-09T22:37:00.076Z",
+    "checkedAt": "2026-10-10T05:51:45.508Z",
     "latest": "0.8.42",
-    "lastWeek": 2671,
-    "lastMonth": 10821,
+    "lastWeek": 4170,
+    "lastMonth": 12648,
     "daily": [
-      {
-        "day": "2026-09-08",
-        "downloads": 0
-      },
       {
         "day": "2026-09-09",
         "downloads": 423
@@ -353,10 +124,13 @@
       {
         "day": "2026-10-07",
         "downloads": 305
+      },
+      {
+        "day": "2026-10-08",
+        "downloads": 1827
       }
     ],
     "zeroDays": [
-      "2026-09-08",
       "2026-09-15",
       "2026-10-05",
       "2026-10-06"
@@ -364,9 +138,9 @@
     "note": "npm daily counts have reporting gaps; zero-value days are flagged and are not real zero usage."
   },
   "repo": {
-    "stars": 129,
+    "stars": 130,
     "forks": 28,
-    "openIssues": 2,
-    "pushedAt": "2026-10-09T13:14:18Z"
+    "openIssues": 3,
+    "pushedAt": "2026-10-10T05:49:56Z"
   }
 }
