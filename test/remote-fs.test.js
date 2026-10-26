@@ -33,3 +33,51 @@ test('previewRemoteFile reports mtime for optimistic locks', async () => {
   assert.equal(typeof r.mtime, 'number')
   assert.ok(r.mtime > 0)
 })
+
+test('previewRemoteFile renders images inline as base64, not as a binary stub (issue #66)', async () => {
+  const fs = new MemFs()
+  // A minimal PNG header contains NUL bytes, so looksBinary() must fire — the
+  // image branch is what rescues it from the binary stub.
+  const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(100, 7)])
+  fs.writeFileSync('/proj/pic.png', png)
+  const sftp = makeSftp(fs)
+  const r = await previewRemoteFile(sftp, '/proj/pic.png', { maxBytes: 1024 })
+  assert.equal(r.ok, true)
+  assert.equal(r.binary, false, 'an image must not degrade to the download hint')
+  assert.equal(r.image, true)
+  assert.equal(r.mime, 'image/png')
+  assert.equal(Buffer.from(r.content, 'base64').equals(png), true, 'the FULL file must come back, not the 4KB head')
+})
+
+test('previewRemoteFile keeps non-image binaries on the download-hint path', async () => {
+  const fs = new MemFs()
+  fs.writeFileSync('/proj/app.bin', Buffer.concat([Buffer.alloc(16, 0), Buffer.from('binary')]))
+  const sftp = makeSftp(fs)
+  const r = await previewRemoteFile(sftp, '/proj/app.bin', { maxBytes: 1024 })
+  assert.equal(r.binary, true)
+  assert.equal(r.image, undefined)
+  assert.equal(typeof r.head, 'string')
+})
+
+test('previewRemoteFile reads an image whole past the text cap (issue #66), and degrades a >2MB one to the stub', async () => {
+  const fs = new MemFs()
+  // 5KB — over the caller's 1KB text cap. A prefix would be a broken render,
+  // so the image branch must ignore that cap and return the file whole.
+  const jpg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0x10]), Buffer.alloc(5000, 3)])
+  fs.writeFileSync('/proj/photo.jpg', jpg)
+  const sftp = makeSftp(fs)
+  const r = await previewRemoteFile(sftp, '/proj/photo.jpg', { maxBytes: 1024 })
+  assert.equal(r.image, true)
+  assert.equal(r.mime, 'image/jpeg')
+  assert.equal(r.truncated, false)
+  assert.equal(Buffer.from(r.content, 'base64').equals(jpg), true)
+
+  // Past the hard 2MB ceiling a truncated image can only render broken — the
+  // honest answer is the download-hint stub.
+  const big = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0, 0, 0, 0]), Buffer.alloc(2 * 1024 * 1024 + 10, 1)])
+  fs.writeFileSync('/proj/huge.png', big)
+  const r2 = await previewRemoteFile(sftp, '/proj/huge.png', { maxBytes: 1024 })
+  assert.equal(r2.binary, true)
+  assert.equal(r2.image, undefined)
+  assert.equal(r2.truncated, true)
+})

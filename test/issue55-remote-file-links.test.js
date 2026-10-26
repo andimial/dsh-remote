@@ -270,6 +270,26 @@ test('canOpen ACCEPTS a remote link once the registry is warm', async () => {
   assert.equal(canOpen('dsh-resource://file/session/remote-1/src/main.c'), true)
 })
 
+test('canOpen LEAVES Markdown links to the built-in preview (issue #64)', async () => {
+  // The remote-link editor shows SOURCE; for .md that is a strict downgrade
+  // from the built-in Markdown renderer, which claims the same address in the
+  // fallback band. Refusing here hands the address back to it — the mirror
+  // copy may lag a sync behind, but a stale rendered doc beats a fresh wall
+  // of `| table |` source.
+  const { types } = bootWithSidebar({
+    routes: { '/dsh-remote/bindings': { mirrors: [MIRROR] } },
+    sessions: [{ id: 'remote-1', cwd: MIRROR.dir + '/sub' }],
+  })
+  const { canOpen } = types.get('dsh-remote/remote-link')
+  await new Promise((r) => setImmediate(r))
+  assert.equal(canOpen('dsh-resource://file/session/remote-1/README.md'), false)
+  assert.equal(canOpen('dsh-resource://file/session/remote-1/docs/guide.markdown'), false)
+  assert.equal(canOpen('dsh-resource://file/session/remote-1/NOTES.MD'), false)
+  // ...while other text files in the SAME session are still claimed.
+  assert.equal(canOpen('dsh-resource://file/session/remote-1/src/main.c'), true)
+  assert.equal(canOpen('dsh-resource://file/session/remote-1/notes.txt'), true)
+})
+
 test('a relative link maps onto the remote root, and an absolute one is kept', async () => {
   const { types } = bootWithSidebar({
     routes: { '/dsh-remote/bindings': { mirrors: [MIRROR] } },

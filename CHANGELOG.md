@@ -2,6 +2,81 @@
 
 All notable changes to **dsh-remote**.
 
+## 0.8.52 — 2026-10-27
+### 一次 SFTP 超时不再拖死整台机器（issue #65）
+
+**问题**：只要有一次 SFTP 操作撞满 `commandTimeoutMs`（默认 20s），这台机器之后
+**所有** SFTP 操作就永久失败——每次再等满 20s，跨 session 传染（池是进程级单例），
+只有断连/重启能恢复；而同一时刻 `rw_exec` 完全正常。根因是超时只 `reject`、不做任何
+清理：通道不置 dead、不关闭、不通知池，后续请求继续排在卡死的通道后面逐个等超时。
+
+**修复**（`lib/sftp-surface.js` + `lib/pool.js` + `lib/openssh.js`）：
+
+- 超时回调里 `markDead()`——同一 surface 的后续请求**立即**失败（"sftp channel
+  closed"），不再各付一次 20s；迟到回调不得二次 settle 已拒绝的 promise；
+- 新增 `onTimeout` 钩子交给后端：native 后端 `sftp.end()` 关掉卡死子通道并记一次
+  strike，**连续两次**超时 `invalidate()` 整条连接重新握手（成功 open 会清零计数，
+  两次相隔数小时的偶发抖动不会误拆健康连接）；openssh 后端 `kill` 掉卡死的 sftp
+  子进程并丢弃缓存会话，下次调用重建；
+- EOF/close 事件仍走 issue #44 的 fail-fast 路径，不算 timeout、不记 strike。
+
+**`rw_edit` 改原子写**（同 issue 的附加伤害）：原来是 readFile→stat→writeFile 直写
+目标文件，超时中断会把文件**截成 0 字节**（真实损失过两个远端文件）。现在先写同目录
+临时文件、再 `renameOverwrite` 覆盖——新增了真正的覆盖语义：服务端宣告
+`posix-rename@openssh.com` 时走扩展单次原子替换，否则走 move-aside 回退（先把原文件
+挪开、新文件落位、失败回滚）；rename 换入的是新 inode，写完会按原 mode 补一次
+`setstat`（可执行位/0600 不丢），临时文件残留尽力清理。
+
+### 工作区机器换 IP/用户名不用重建（issue #67）
+
+保存机器时改了 host/user/port，或在 `rw_connect` 里 `machineId` 与新地址**同传**，会把
+该机器名下**全部工作区镜像原地重绑**到新地址：镜像的 `.dsh-remote-meta.json` 是唯一
+绑定来源（session 路由、连接池键、侧栏徽标都读它），改写 meta 即完成重指——本地内容
+保留、无需重新同步，旧地址的连接池立即作废。别名机器按记录的 alias 匹配，重绑只在
+别名真实解析成功时才刷新解析出的地址字段。镜像目录名不改（活 session 的 cwd 在其中，
+改名会把它们悬成 "session is LOCAL"），目录名只是显示标签。设置页保存后会提示重绑了
+几个镜像。
+
+### 远程图片预览内联渲染（issue #66）
+
+侧栏远程文件树点开 png/jpg/jpeg/gif/webp/svg/bmp 不再只显示「二进制文件请下载」：
+`previewRemoteFile` 对图片扩展名跳过 256KB 文本截断上限、按 2MB 硬顶读全量，前端以
+`<img src="data:…">` 内联渲染（`<img>` 对 SVG 也是安全宿主——不会执行文件内脚本）。
+超过 2MB 的图片退回下载提示（半截图只会渲染成坏图，不如诚实给下载）。编辑按钮对图片
+禁用。其余二进制类型行为不变。
+
+### .md 文件链接交还内置 Markdown 渲染（issue #64）
+
+issue #55 的地址接管（`dsh-resource://file/**`）把 .md 也拽进了远程编辑器——只能看
+源码，丢掉了内置 Markdown 渲染，是纯损失。现在 `canOpen` 对 `.md`/`.markdown`（大小写
+不限）**拒绝接管**，这些地址落回内置文档预览（读本地镜像副本；要最新内容先 `rw_sync`，
+这条边界本就在 issue #55 的说明里）。其余文本扩展名行为不变。
+
+### 远程会话能「看见」工作区的 AGENTS.md 了（issue #68）
+
+核心的指令加载链路只认本地文件系统：远程会话的 cwd 是本地镜像（`rw_sync` 之前是空），
+远端仓库的 AGENTS.md 永远进不了模型上下文——丢的不是文件访问（`rw_read_file` 本来
+能读），是「模型不知道该读」。按 issue 给的两条廉价路径修：
+
+- **索引行进 prompt**：对绑定的远程工作区做**浅扫**（根 + 向下 ≤2 层，只匹配
+  `AGENTS.md`/`CLAUDE.md`，跳过 node_modules/.git/隐藏目录/符号链接，目录与文件数有
+  硬顶），把命中的路径+标题层级渲染进 dsh-remote 的 system prompt 段，提示模型编辑
+  前用 `rw_read_file` 读它。这是**索引**而非全文注入，不开第二条与核心 baseline 并行
+  的注入管线（issue 明确不要的那个做法）；
+- **同步进镜像**：命中的文件按三向安全规则写进本地镜像对应相对路径（写后对
+  `.dsh-remote-sync-state.json` 记账，本地改过的绝不覆盖），于是根级 AGENTS.md 恰好落在
+  核心加载器会看的位置——与本地会话同一条注入链路，插件不另起逻辑。
+
+扫描时机：`rw_pick_workspace` 成功后**立即**扫（保证首次 pre-step 前镜像就位）；
+prompt 组装时惰性补扫（fire-and-forget，失败负缓存 60s——机器离线不会把每次组装
+变成连接尝试）；`rw_sync` 完成后刷新。新增 `lib/instructions.js` +
+`test/issue68-remote-instructions.test.js` 10 条。
+
+### 其它
+
+- 新增 `DSH_REMOTE_SSH_CONFIG` 环境变量可替换 `~/.ssh/config` 路径（测试与隔离部署用）。
+- 全量 **703/703** 通过。
+
 ## 0.8.51 — 2026-10-22
 ### 本地 session 的 rw_* 工具可见性分层（issue #63）
 
